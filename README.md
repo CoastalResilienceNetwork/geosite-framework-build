@@ -4,12 +4,12 @@ geosite-framework-build
 Build script for GeositeFramework regions
 
 ### Usage Instructions
+#### For a single region
 To run the script at a command prompt, run the following command:
 
-``python build.py [workspace_dir] [region_repo_name] [optional: github_organization]``
+``python build.py [region_repo_name] [optional: github_organization]``
 
 where:
-  * ``workspace_dir``: The directory where the script will assemble all of the code files
   * ``region_repo_name``: The name of the GeositeFramework Region Repo on  Github.com
   * ``github_organization``: Optional.  The name of the Github.com Organization which the repo belongs to. Default is CoastalResilienceNetwork.
 
@@ -28,6 +28,21 @@ The executable installer will be in the ``[workspace]\output`` folder after the 
 
 #### Using the build script to set up a development environment
 The same script leaves all of the intermediate code in the ``[workspace]\build`` directory so that plugin developers need only to create an IIS Application which points to ``[workspace]\build\GeositeFramework\src\GeositeFramework``.  This will be a working version of the region and all of its plugins, ready to be served.
+
+#### Building multiple regions at once
+The build script can build installers for multiple sites at once by use of a config file and a flag to the script.  If you created a Coastal Resilience file named ``ca.conf`` with the contents being one full Org/Repo per line:
+
+```
+CoastalResilienceNetwork/gulf-of-mexico-region
+CoastalResilienceNetwork/ventura-region
+CoastalResilienceNetwork/puget-sound-region
+```
+
+You can then run the build script with the following:
+
+``python build.py ca.conf --config``
+
+and it will build all regions listed in the conf file.  The output of all installers will still be in ``[workspace]\output``.  Note that the build process does *not* clear out the output directory, so you may also have old installers there.  The script *will* overwrite any files in ``output`` with newer versions.
 
 #### Errors and debugging the script
 ##### Error deleteing ``build`` directory

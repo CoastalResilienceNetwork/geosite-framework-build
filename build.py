@@ -5,6 +5,7 @@ import os
 import posixpath
 import shutil
 import stat
+import sys
 
 from subprocess import call
 
@@ -29,6 +30,7 @@ def build_region(region, path, full_framework):
 
     # Get the repo name and to avoid confusion name it a _config dir
     region_dest = '%s_config' % region.split('/')[1]
+
     clone_repo(region, region_dest)
 
     fetch_framework_and_plugins(region_dest)
@@ -39,6 +41,20 @@ def build_region(region, path, full_framework):
     print ""
     print "---------------------------------------"
     print "%s was build successfully" % region
+    print "---------------------------------------"
+    print ""
+
+
+def build_from_config(config, workspace_dir, full_framework):
+    """Build each region in the specified config file"""
+    if not os.path.isfile(config):
+        print '%s cannot be found in %s' % (config, workspace_dir)
+        sys.exit(1)
+        
+    with open(config) as config_file:
+        regions = config_file.readlines()
+        for region in regions:
+            build_region(region.rstrip(), workspace_dir, full_framework)
 
 
 def make_installer(workspace_dir, region_dest):
@@ -72,14 +88,20 @@ def fetch_framework_and_plugins(region_dest):
     """ Read in the region's plugin config and clone the specified repos """
 
     os.chdir(region_dest)
-    with open('plugins.json') as plugins:
-        config = json.load(plugins)
+    if not os.path.isfile('plugins.json'):
+        print '%s does not specifiy a plugins.json, not fetching plugins.' \
+               % (region_dest)
         os.chdir('..')
+        clone_repo(full_framework)
+    else:
+        with open('plugins.json') as plugins:
+            config = json.load(plugins)
+            os.chdir('..')
 
-        framework_ver = config.get('frameworkVersion')
-        clone_repo(full_framework, version=framework_ver)
+            framework_ver = config.get('frameworkVersion')
+            clone_repo(full_framework, version=framework_ver)
 
-        fetch_plugins(config['plugins'])
+            fetch_plugins(config['plugins'])
 
 
 def fetch_plugins(plugins):
@@ -186,10 +208,8 @@ def clone_repo(full_repo, target_dir=None, version=None):
 
     if version:
         os.chdir(dest)
-        print os.getcwd()
         call(['git', 'reset', '--hard', version])
         os.chdir('..')
-        print os.getcwd()
 
 
 def compile_project(root):
@@ -206,15 +226,21 @@ if (__name__ == '__main__'):
     """
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('w', help='File path to use as a build workspace')
-    parser.add_argument('region', help='Github.com repo of region to build')
+    parser.add_argument('source', help='Github.com repo of region to build ' +
+                        'path to config file for multiple regions')
     parser.add_argument('org', default=DEFAULT_ORG, nargs='?',
                         help='Github.com Org where the repo region resides. ' +
                         'Default=%s' % DEFAULT_ORG)
+    parser.add_argument('--config', default=False, action='store_true',
+                        help='Source input was a configuration file for building multiple regions at once')
 
     args = parser.parse_args()
 
-    region = posixpath.join(args.org, args.region)
     full_framework = posixpath.join(DEFAULT_ORG, FRAMEWORK_REPO)
+    cwd = os.getcwd()
 
-    build_region(region, args.w, full_framework)
+    if args.config:
+        build_from_config(args.source, cwd, full_framework)
+    else: 
+        region = posixpath.join(args.org, args.source)
+        build_region(region, cwd, full_framework)
