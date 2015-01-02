@@ -11,8 +11,8 @@ from subprocess import call
 
 # Default path for SDK installs of MSBuild
 MSBUILD_PATH = 'C:\\Windows\Microsoft.NET\\Framework\\v4.0.30319\\MSBuild.exe'
-# Path to the NSIS compiler
-NSIS_PATH = '\\\\LR01.internal.azavea.com\\nsis\\makensis.exe'
+# Assume that NSIS install path is on the path
+NSIS_EXE = 'makensis.exe'
 
 FRAMEWORK_REPO = 'GeositeFramework'
 DEFAULT_ORG = 'CoastalResilienceNetwork'
@@ -76,7 +76,7 @@ def make_installer(workspace_dir, region_dest):
     installer_path = os.path.join(workspace_dir, install_scripts_dir,
                                   region_install_file)
     verbosity = '/V%s' % NSIS_V
-    call([NSIS_PATH, verbosity, installer_path])
+    execute([NSIS_EXE, verbosity, installer_path])
 
     # Copy the exe to the output dir
     root_dir, _ = os.path.split(workspace_dir)
@@ -171,7 +171,8 @@ def overwrite_copy(file, dest, recursive=False, assume_dir=False):
     if assume_dir:
         copy_args.append('/I')
 
-    call(copy_args, shell=True)
+    # Exit code 0 (success) and 4 (No files to copy) should succeed
+    execute(copy_args, [4])
 
 
 def setup_workspace(path):
@@ -205,11 +206,11 @@ def clone_repo(full_repo, target_dir=None, version=None):
     if target_dir:
         clone_args.append(target_dir)
 
-    call(clone_args, shell=True)
+    execute(clone_args)
 
     if version:
         os.chdir(dest)
-        call(['git', 'reset', '--hard', version])
+        execute(['git', 'reset', '--hard', version])
         os.chdir('..')
 
 
@@ -217,8 +218,20 @@ def compile_project(root):
     """ Compile the .NET project with MSBuild """
     os.chdir(root)
     verbosity = '/verbosity:%s' % MSB_V
-    call([MSBUILD_PATH, verbosity, '/p:Configuration=Release',
-         'GeositeFramework\src\GeositeFramework.sln'], shell=True)
+    execute([MSBUILD_PATH, verbosity, '/p:Configuration=Release',
+         'GeositeFramework\src\GeositeFramework.sln'])
+
+
+def execute(call_args, additional_success_codes=[]):
+    """ Check the exit code for a subprocess call for errors.
+        By default, 0 is ok, but the caller can provide additional_success_codes
+        that should be considered non-errors
+    """
+    
+    exit = call(call_args, shell=True) 
+    if exit != 0 and exit not in additional_success_codes:
+        print "Call to %s failed" % call_args
+        sys.exit()
 
 
 if (__name__ == '__main__'):
