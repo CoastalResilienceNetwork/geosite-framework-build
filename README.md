@@ -120,14 +120,7 @@ A plugin repo should contain all of the source code for a single plugin, specifi
 ### Installation Instructions
 The build machine will need the following dependencies:
 
-  * ``python 2.7+``: This is often included in ESRI installations, but should be accessible from the PATH.
+  * ``python 2.7+``: This is often included in ESRI installations, but should be accessible from the ``PATH``.
   * ``MSBuild.exe``: This should be available if the .NET SDK v4 has been installed
-  * ``NSIS``: Installer script system, available at http://nsis.sourceforge.net/Main_Page
-  * ``git``: The git source control command must be available on the PATH. http://git-scm.com/downloads
-
-#### Configure the script
-You will need to configure the script to point to the path for NSIS, with proper python escaping.
-
-For example, if you installed NSIS to C:\Program Files\NSIS, update the script setting:
-
-``NSIS_PATH = 'C:\\Program Files\\NSIS\\makensis.exe'``
+  * ``NSIS``: Installer script system. Download at http://nsis.sourceforge.net/Main_Page. Must be available on the ``PATH``.
+  * ``git``: The git source control command must be available on the ``PATH``. http://git-scm.com/downloads
