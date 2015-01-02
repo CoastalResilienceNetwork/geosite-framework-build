@@ -15,12 +15,12 @@ where:
 
 For example, to build the Gulf of Mexico region site, the command would look like this:
 
-``python build.py . gulf-of-mexico-region``
+``python build.py gulf-of-mexico-region``
 
 That will assemble and build the gulfmex Coastal Resilience site in a workspace in the current directory.
 
 To build a region in another github organization, an example could be:
-``python build.py . TNC-LA-Freshwater azavea``
+``python build.py TNC-LA-Freshwater azavea``
 
 which will build the ``azavea/TNC-LA-Freshwater`` region, assuming the region has been updated to conform to the build script requirements (See: Setting up a Region Repo)
 
