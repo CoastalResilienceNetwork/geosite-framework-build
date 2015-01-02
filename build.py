@@ -11,8 +11,8 @@ from subprocess import call
 
 # Default path for SDK installs of MSBuild
 MSBUILD_PATH = 'C:\\Windows\Microsoft.NET\\Framework\\v4.0.30319\\MSBuild.exe'
-# Path to the NSIS compiler
-NSIS_PATH = '\\\\LR01.internal.azavea.com\\nsis\\makensis.exe'
+# Assume that NSIS install path is on the path
+NSIS_EXE = 'makensis.exe'
 
 FRAMEWORK_REPO = 'GeositeFramework'
 DEFAULT_ORG = 'CoastalResilienceNetwork'
@@ -76,7 +76,7 @@ def make_installer(workspace_dir, region_dest):
     installer_path = os.path.join(workspace_dir, install_scripts_dir,
                                   region_install_file)
     verbosity = '/V%s' % NSIS_V
-    call([NSIS_PATH, verbosity, installer_path])
+    execute([NSIS_EXE, verbosity, installer_path])
 
     # Copy the exe to the output dir
     root_dir, _ = os.path.split(workspace_dir)
