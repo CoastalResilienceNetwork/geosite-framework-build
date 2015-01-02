@@ -65,6 +65,7 @@ def make_installer(workspace_dir, region_dest):
     print "Creating installer executable..."
 
     # Get all of the NSIS installers scripts together in a single directory
+    os.mkdir(install_scripts_dir)
     clone_repo('azavea/azavea-nsis', os.path.join(install_scripts_dir, 'NSIS'))
     overwrite_copy('..\installer-scripts\*', install_scripts_dir)
     region_installer = os.path.join(os.getcwd(), region_dest,
