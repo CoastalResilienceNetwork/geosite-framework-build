@@ -9,6 +9,21 @@ import sys
 
 from subprocess import call
 
+# ******************************
+# May need to change these for non-TNC installations
+# IIS Website names for production and development deployments
+PROD_SITE = 'Default Web Site'
+DEV_SITE = 'dev'
+
+# Root paths for production and development installations
+PROD_PATH = 'C:\\projects\\TNC'
+DEV_PATH = 'C:\\projects\\TNC\\dev'
+
+# Default installer name
+INSTALLER_NAME = 'output\\tnc-ca-%(region)s%(env)sSetup.exe'
+
+# ******************************
+
 # Default path for SDK installs of MSBuild
 MSBUILD_PATH = 'C:\\Windows\Microsoft.NET\\Framework\\v4.0.30319\\MSBuild.exe'
 # Assume that NSIS install path is on the path
@@ -24,19 +39,23 @@ NSIS_V = 0
 MSB_V = 'q'
 
 
-def build_region(region, path, full_framework):
-    """ Build a GeositeFramework Region Installer """
+def build_region(region, path, full_framework, do_install=False, is_prod=False):
+    """ Build a GeositeFramework Region Installer and optionally install it """
     workspace = setup_workspace(path)
 
     # Get the repo name and to avoid confusion name it a _config dir
     region_dest = '%s_config' % region.split('/')[1]
+    region_name = get_region_name(region)
 
     clone_repo(region, region_dest)
 
     fetch_framework_and_plugins(region_dest)
     copy_region_files(workspace, region_dest)
     compile_project(workspace)
-    make_installer(workspace, region_dest)
+    make_installer(workspace, region_dest, region_name, is_prod)
+
+    if do_install:
+        install(region_name, path, is_prod)
 
     print ""
     print "---------------------------------------"
@@ -44,8 +63,41 @@ def build_region(region, path, full_framework):
     print "---------------------------------------"
     print ""
 
+    
+def get_region_name(repo_name):
+    # Strip off the org/ from the repo
+    repo = repo_name[repo_name.find('/')+1:]
+    
+    # convention is to take region repo, minus text "-region", 
+    # thus gulfmex-region become url "gulfmex"
+    region = repo[0:repo.find('-region')]
+    
+    return region
 
-def build_from_config(config, workspace_dir, full_framework):
+
+def install(region, path, is_prod=False):
+    """Run the installer in silent mode to install to prod or dev website"""
+    
+    print "Installing to %s" % ("production" if is_prod else "development")
+    
+    exe_name = INSTALLER_NAME % {'region': region, 'env': '' if is_prod else '-dev'}
+    url = region
+    website = PROD_SITE if is_prod else DEV_SITE
+    root_path = PROD_PATH if is_prod else DEV_PATH
+    install_path = os.path.join(root_path, region)
+    
+    args = [exe_name, 
+            '/S',
+            '/WEBSITE_NAME=%s' % website,
+            '/APP_URL=%s' % url,
+            '/REINSTALL_OVER=true',
+            '/D=%s' % install_path]
+            
+    os.chdir(path)
+    execute(args)
+    
+
+def build_from_config(config, workspace_dir, full_framework, do_install, is_prod):
     """Build each region in the specified config file"""
     if not os.path.isfile(config):
         print '%s cannot be found in %s' % (config, workspace_dir)
@@ -54,29 +106,36 @@ def build_from_config(config, workspace_dir, full_framework):
     with open(config) as config_file:
         regions = config_file.readlines()
         for region in regions:
-            build_region(region.rstrip(), workspace_dir, full_framework)
+            build_region(region.rstrip(), workspace_dir, full_framework,
+                         do_install, is_prod)
 
 
-def make_installer(workspace_dir, region_dest):
+def make_installer(workspace_dir, region_dest, region_name, is_prod=False):
     os.chdir(workspace_dir)
     install_scripts_dir = 'installer'
-    region_install_file = 'installer.nsi'
-
+    full_region_nsi_path = os.path.join(workspace_dir, install_scripts_dir,'installer.nsi')
+    template_nsi = os.path.join(install_scripts_dir, 'installer.nsi.tmpl')
+    
     print "Creating installer executable..."
 
     # Get all of the NSIS installers scripts together in a single directory
     os.mkdir(install_scripts_dir)
     clone_repo('azavea/azavea-nsis', os.path.join(install_scripts_dir, 'NSIS'))
     overwrite_copy('..\installer-scripts\*', install_scripts_dir)
-    region_installer = os.path.join(os.getcwd(), region_dest,
-                                    region_install_file)
-    overwrite_copy(region_installer, install_scripts_dir)
-
+    
+    # Load installer template
+    with open(template_nsi, 'r') as installer:
+        tmpl = installer.read()
+        installer_name = region_name + ('' if is_prod else '-dev')
+        installer_contents = tmpl % { 'region': installer_name}
+        
+        # Copy the region specific installer to the region_dest
+        with open(full_region_nsi_path, 'w') as output_nsi:
+            output_nsi.write(installer_contents)
+    
     # Compile an executable installer for this region
-    installer_path = os.path.join(workspace_dir, install_scripts_dir,
-                                  region_install_file)
     verbosity = '/V%s' % NSIS_V
-    execute([NSIS_EXE, verbosity, installer_path])
+    execute([NSIS_EXE, verbosity, full_region_nsi_path])
 
     # Copy the exe to the output dir
     root_dir, _ = os.path.split(workspace_dir)
@@ -247,14 +306,32 @@ if (__name__ == '__main__'):
                         'Default=%s' % DEFAULT_ORG)
     parser.add_argument('--config', default=False, action='store_true',
                         help='Source input was a configuration file for building multiple regions at once')
-
+    parser.add_argument('--dev', default=False, action='store_true',
+                        help='Install this region to the production environment')
+    parser.add_argument('--prod', default=False, action='store_true',
+                        help='Install this region to the development environment')
+                        
     args = parser.parse_args()
 
+    # Check if we are auto installing this build
+    if args.prod and args.dev:
+        print "Please choose only 'prod' or 'dev'"
+        sys.exit()
+        
+    do_install = args.prod or args.dev
+    is_prod = args.prod
+    if do_install:
+        choice = raw_input('This will remove any current installation and ' + 
+                           'install a new region website.  Are you sure you wish to continue? [y/n]: ')
+        if choice.lower() not in ['y','yes']:
+            sys.exit()
+            
+        
     full_framework = posixpath.join(DEFAULT_ORG, FRAMEWORK_REPO)
     cwd = os.getcwd()
 
     if args.config:
-        build_from_config(args.source, cwd, full_framework)
+        build_from_config(args.source, cwd, full_framework, do_install, is_prod)
     else: 
         region = posixpath.join(args.org, args.source)
-        build_region(region, cwd, full_framework)
+        build_region(region, cwd, full_framework, do_install, is_prod)
