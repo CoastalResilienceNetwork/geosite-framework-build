@@ -46,10 +46,15 @@ def build_region(region, path, full_framework, do_install=False, is_prod=False):
     # Get the repo name and to avoid confusion name it a _config dir
     region_dest = '%s_config' % region.split('/')[1]
     region_name = get_region_name(region)
+    
+    # If installing to dev site, favor a branch named 'development' for the
+    # region repo and any plugins, but don't fail if it doesn't exist
+    # This is the convention used by TNC developers to introduce new features
+    region_branch = 'development' if do_install and not is_prod else None
 
-    clone_repo(region, region_dest)
+    clone_repo(region, region_dest, branch=region_branch)
 
-    fetch_framework_and_plugins(region_dest)
+    fetch_framework_and_plugins(region_dest, region_branch)
     copy_region_files(workspace, region_dest)
     compile_project(workspace)
     make_installer(workspace, region_dest, region_name, is_prod)
@@ -144,7 +149,7 @@ def make_installer(workspace_dir, region_dest, region_name, is_prod=False):
     overwrite_copy(src, dest)
 
 
-def fetch_framework_and_plugins(region_dest):
+def fetch_framework_and_plugins(region_dest, branch=None):
     """ Read in the region's plugin config and clone the specified repos """
 
     os.chdir(region_dest)
@@ -161,10 +166,10 @@ def fetch_framework_and_plugins(region_dest):
             framework_ver = config.get('frameworkVersion')
             clone_repo(full_framework, version=framework_ver)
 
-            fetch_plugins(config['plugins'])
+            fetch_plugins(config['plugins'], branch)
 
 
-def fetch_plugins(plugins):
+def fetch_plugins(plugins, branch=None):
     """ Clone each specified plugin at its optional version """
 
     plugin_dir = os.path.join(FRAMEWORK_REPO, 'src',
@@ -180,7 +185,7 @@ def fetch_plugins(plugins):
         target_dir = os.path.join(plugin_dir, plugin['name'])
         full_repo = posixpath.join(org, plugin['repo'])
 
-        clone_repo(full_repo, target_dir, version)
+        clone_repo(full_repo, target_dir, version, branch)
 
 
 def copy_region_files(workspace, region_dest):
@@ -252,10 +257,12 @@ def setup_workspace(path):
     return os.getcwd()
 
 
-def clone_repo(full_repo, target_dir=None, version=None):
+def clone_repo(full_repo, target_dir=None, version=None, branch=None):
     """ Clone a public repo via https.  Specify `version` to target a
         specific commit sha
     """
+    original_dir = os.getcwd()
+    
     # Get the actual name that git will clone to
     dest = (target_dir or os.path.split(full_repo)[1])
     print 'Cloning %s@%s...' % (dest, (version or "HEAD"))
@@ -267,10 +274,24 @@ def clone_repo(full_repo, target_dir=None, version=None):
 
     execute(clone_args)
 
+    if branch:
+        # Attempt to check out a remote branch, but don't fail if it doesn't exist
+        # This is typically used to attempt a 'development' branch, which is a 
+        # convention used by TNC plugin/region developers for pre-production code
+        os.chdir(dest)
+        
+        execute(['git', 'fetch', 'origin' ])
+        
+        # Don't print any errors for checking out branch, there's no good way to 
+        # check if a remote branch exists programatically.  And if it doesn't, git
+        # stays on the current branch.
+        execute(['git', 'checkout', branch, '2>', 'nul'], [1])
+        os.chdir(original_dir )
+        
     if version:
         os.chdir(dest)
         execute(['git', 'reset', '--hard', version])
-        os.chdir('..')
+        os.chdir(original_dir )
 
 
 def compile_project(root):
