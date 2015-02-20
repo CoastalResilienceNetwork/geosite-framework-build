@@ -38,6 +38,11 @@ Section "Web Files"
     File /r  ..\GeositeFramework\src\GeositeFramework\region.json
     File /nonfatal ..\GeositeFramework\src\GeositeFramework\partners.html
     File /r  ..\GeositeFramework\src\GeositeFramework\Scripts
+    
+    ; Common but optional additional directories to copy
+    File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\xml
+    File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\sims
+    File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\methods
 
     SetOutPath $APPLICATION_DIR\Views
     File /r ..\GeositeFramework\src\GeositeFramework\Views\*.cshtml
