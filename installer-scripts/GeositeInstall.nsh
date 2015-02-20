@@ -43,6 +43,7 @@ Section "Web Files"
     File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\xml
     File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\sims
     File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\methods
+    File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\docs
 
     SetOutPath $APPLICATION_DIR\Views
     File /r ..\GeositeFramework\src\GeositeFramework\Views\*.cshtml
