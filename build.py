@@ -197,7 +197,7 @@ def copy_region_files(workspace, region_dest):
     files = ['region.json', 'partners.html', 'Proxy.config']
     copy_files(files, src_dir)
 
-    directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml']
+    directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs']
     copy_dirs(directories, src_dir)
 
 
@@ -331,7 +331,9 @@ if (__name__ == '__main__'):
                         help='Install this region to the production environment')
     parser.add_argument('--prod', default=False, action='store_true',
                         help='Install this region to the development environment')
-                        
+    parser.add_argument('--silent', default=False, action='store_true',
+                        help="Don't ask me any questions, just do it")
+    
     args = parser.parse_args()
 
     # Check if we are auto installing this build
@@ -342,10 +344,11 @@ if (__name__ == '__main__'):
     do_install = args.prod or args.dev
     is_prod = args.prod
     if do_install:
-        choice = raw_input('This will remove any current installation and ' + 
+        if not args.silent:
+            choice = raw_input('This will remove any current installation and ' + 
                            'install a new region website.  Are you sure you wish to continue? [y/n]: ')
-        if choice.lower() not in ['y','yes']:
-            sys.exit()
+            if choice.lower() not in ['y','yes']:
+                sys.exit()
             
         
     full_framework = posixpath.join(DEFAULT_ORG, FRAMEWORK_REPO)
@@ -356,3 +359,4 @@ if (__name__ == '__main__'):
     else: 
         region = posixpath.join(args.org, args.source)
         build_region(region, cwd, full_framework, do_install, is_prod)
+
