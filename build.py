@@ -39,7 +39,7 @@ NSIS_V = 0
 MSB_V = 'q'
 
 
-def build_region(region, path, full_framework, do_install=False, is_prod=False):
+def build_region(region, path, full_framework, do_install=False, is_prod=False, is_test=False):
     """ Build a GeositeFramework Region Installer and optionally install it """
     workspace = setup_workspace(path)
 
@@ -57,8 +57,12 @@ def build_region(region, path, full_framework, do_install=False, is_prod=False):
     fetch_framework_and_plugins(region_dest, region_branch)
     copy_region_files(workspace, region_dest)
     compile_project(workspace)
-    make_installer(workspace, region_dest, region_name, is_prod)
 
+    if (is_test):
+        region_name = "test"
+        
+    make_installer(workspace, region_dest, region_name, is_prod)
+        
     if do_install:
         install(region_name, path, is_prod)
 
@@ -85,12 +89,12 @@ def install(region, path, is_prod=False):
     
     print "Installing to %s" % ("production" if is_prod else "development")
     
-    exe_name = INSTALLER_NAME % {'region': region, 'env': '' if is_prod else '-dev'}
+    exe_name = INSTALLER_NAME % {'region': region, 'env': '' if is_prod else '-dev'}        
     url = region
     website = PROD_SITE if is_prod else DEV_SITE
     root_path = PROD_PATH if is_prod else DEV_PATH
     install_path = os.path.join(root_path, region)
-    
+
     args = [exe_name, 
             '/S',
             '/WEBSITE_NAME=%s' % website,
@@ -332,7 +336,9 @@ if (__name__ == '__main__'):
     parser.add_argument('--prod', default=False, action='store_true',
                         help='Install this region to the development environment')
     parser.add_argument('--silent', default=False, action='store_true',
-                        help="Don't ask me any questions, just do it")
+                        help="Install this region without the prompt, mostly for scripts")
+    parser.add_argument('--test', default=False, action='store_true',
+                        help="Install this region to the test site.  Only valid if dev or prod is also selected")
     
     args = parser.parse_args()
 
@@ -343,6 +349,8 @@ if (__name__ == '__main__'):
         
     do_install = args.prod or args.dev
     is_prod = args.prod
+    is_test = args.test
+    
     if do_install:
         if not args.silent:
             choice = raw_input('This will remove any current installation and ' + 
@@ -358,5 +366,5 @@ if (__name__ == '__main__'):
         build_from_config(args.source, cwd, full_framework, do_install, is_prod)
     else: 
         region = posixpath.join(args.org, args.source)
-        build_region(region, cwd, full_framework, do_install, is_prod)
+        build_region(region, cwd, full_framework, do_install, is_prod, is_test)
 
