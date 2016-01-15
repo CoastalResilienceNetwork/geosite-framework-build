@@ -31,6 +31,7 @@ NSIS_EXE = 'makensis.exe'
 
 FRAMEWORK_REPO = 'GeositeFramework'
 DEFAULT_ORG = 'CoastalResilienceNetwork'
+DEFAULT_BRANCH = 'master'
 BUILD_DIR = 'build'     # Build workspace
 OUTPUT_DIR = 'output'   # Installer artifact directory
 # NSIS Compiler Verbosity Setting 0 (off) - 4 (all)
@@ -39,7 +40,8 @@ NSIS_V = 0
 MSB_V = 'q'
 
 
-def build_region(region, path, full_framework, do_install=False, is_prod=False,
+def build_region(region, path, full_framework, framework_branch=None,
+                 region_branch=None, do_install=False, is_prod=False,
                  is_test=False):
     """ Build a GeositeFramework Region Installer and optionally install it """
     workspace = setup_workspace(path)
@@ -51,11 +53,12 @@ def build_region(region, path, full_framework, do_install=False, is_prod=False,
     # If installing to dev site, favor a branch named 'development' for the
     # region repo and any plugins, but don't fail if it doesn't exist
     # This is the convention used by TNC developers to introduce new features
-    region_branch = 'development' if do_install and not is_prod else None
+    region_branch = ('development' if do_install and not is_prod else
+                     region_branch)
 
     clone_repo(region, region_dest, branch=region_branch)
 
-    fetch_framework_and_plugins(region_dest, region_branch)
+    fetch_framework_and_plugins(region_dest, framework_branch, region_branch)
     copy_region_files(workspace, region_dest)
     compile_project(workspace)
 
@@ -119,6 +122,7 @@ def build_from_config(config, workspace_dir, full_framework, do_install,
         regions = config_file.readlines()
         for region in regions:
             build_region(region.rstrip(), workspace_dir, full_framework,
+                         DEFAULT_BRANCH, DEFAULT_BRANCH,
                          do_install, is_prod)
 
 
@@ -157,7 +161,8 @@ def make_installer(workspace_dir, region_dest, region_name, is_prod=False):
     overwrite_copy(src, dest)
 
 
-def fetch_framework_and_plugins(region_dest, branch=None):
+def fetch_framework_and_plugins(region_dest, framework_branch=None,
+                                region_branch=None):
     """ Read in the region's plugin config and clone the specified repos """
 
     os.chdir(region_dest)
@@ -165,16 +170,17 @@ def fetch_framework_and_plugins(region_dest, branch=None):
         print '%s does not specifiy a plugins.json, not fetching plugins.' \
             % (region_dest)
         os.chdir('..')
-        clone_repo(full_framework)
+        clone_repo(full_framework, branch=framework_branch)
     else:
         with open('plugins.json') as plugins:
             config = json.load(plugins)
             os.chdir('..')
 
             framework_ver = config.get('frameworkVersion')
-            clone_repo(full_framework, version=framework_ver)
+            clone_repo(full_framework, branch=framework_branch,
+                       version=framework_ver)
 
-            fetch_plugins(config['plugins'], branch)
+            fetch_plugins(config['plugins'], region_branch)
 
 
 def fetch_plugins(plugins, branch=None):
@@ -293,6 +299,7 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         # Don't print any errors for checking out branch, there's no good way
         # to check if a remote branch exists programmatically. And if it
         # doesn't, git stays on the current branch.
+        print 'Attempting to checkout the %s branch' % branch
         execute(['git', 'checkout', branch, '2>', 'nul'], [1])
         os.chdir(original_dir)
 
@@ -333,6 +340,13 @@ if (__name__ == '__main__'):
     parser.add_argument('org', default=DEFAULT_ORG, nargs='?',
                         help='Github.com Org where the repo region resides. ' +
                         'Default=%s' % DEFAULT_ORG)
+    parser.add_argument('--region-branch', default=DEFAULT_BRANCH,
+                        nargs='?', help='Region repo branch to use. ' +
+                        'Overridden by --dev and --prod options. ' +
+                        'Default=%s' % DEFAULT_BRANCH)
+    parser.add_argument('--framework-branch', default=DEFAULT_BRANCH,
+                        nargs='?', help='Framework repo branch to use. ' +
+                        'Default=%s' % DEFAULT_BRANCH)
     parser.add_argument('--config', default=False, action='store_true',
                         help='Source input was a configuration file for ' +
                              'building multiple regions at once')
@@ -359,6 +373,10 @@ if (__name__ == '__main__'):
     do_install = args.prod or args.dev
     is_prod = args.prod
     is_test = args.test
+    framework_branch = (args.framework_branch if args.framework_branch
+                        else DEFAULT_BRANCH)
+    region_branch = (args.region_branch if args.region_branch
+                     else DEFAULT_BRANCH)
 
     if do_install:
         if not args.silent:
@@ -376,4 +394,5 @@ if (__name__ == '__main__'):
                           is_prod)
     else:
         region = posixpath.join(args.org, args.source)
-        build_region(region, cwd, full_framework, do_install, is_prod, is_test)
+        build_region(region, cwd, full_framework, framework_branch,
+                     region_branch, do_install, is_prod, is_test)
