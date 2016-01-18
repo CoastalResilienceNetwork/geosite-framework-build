@@ -24,6 +24,8 @@ To build a region in another github organization, an example could be:
 
 which will build the ``azavea/TNC-LA-Freshwater`` region, assuming the region has been updated to conform to the build script requirements (See: Setting up a Region Repo)
 
+If you want to use a different repository branch for the region, you can use the `--region-branch` argument. For example, to build a branch of the gulfmex region titled `configtest`, run `python build.py gulfmex-region --region-branch configtest`. You can also build a different branch of the framework using the `--framework-branch` argument. Both arguments can be used at the same time, but note that the `--prod` and `--dev` flags take precedent and will use the `master` and `development` branches, respectively, no matter what branches are specified by the other arguments. Also, at this time, neither of the branches can be specified when building sites from a config file.
+
 The executable installer will be in the ``[workspace]\output`` folder after the script runs successfully.
 
 #### Auto-installing a region
