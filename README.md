@@ -101,7 +101,7 @@ plugins.json should be a valid json document.  You can use an online tool such a
   ]
 }
 ```
-  * ``frameworkVersion``:  If the region wants to target an older framework git commit enter the sha, if not supplied it will pull hte most recent version. 
+  * ``frameworkVersion``:  If the region wants to target an older framework git commit enter the sha, if not supplied it will pull the most recent version.
   * ``repo``: github.com repository name.
   * ``name``: The plugin directory to copy the code into in the region site.  It should be the directory that the region plugin config will be in.
   * ``ver``: Optional.  The git commit to target in the plugin repo, if not supplied it will pull the most recent version. 
