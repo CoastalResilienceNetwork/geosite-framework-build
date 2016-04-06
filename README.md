@@ -3,7 +3,42 @@ geosite-framework-build
 
 Build script and optional auto-installer for GeositeFramework regions.
 
-### Usage Instructions
+### Usage
+
+```bash
+$ python build.py -h
+usage: build.py [-h] [--region-branch [REGION_BRANCH]]
+                [--framework-branch [FRAMEWORK_BRANCH]] [--config] [--dev]
+                [--prod] [--silent] [--test]
+                source [org]
+
+Build a GeositeFramework region instance
+
+positional arguments:
+  source                Github.com repo of region to build path to config file
+                        for multiple regions
+  org                   Github.com Org where the repo region resides.
+                        Default=CoastalResilienceNetwork
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --region-branch [REGION_BRANCH]
+                        Region repo branch to use. Overridden by --dev and
+                        --prod options. Default=master
+  --framework-branch [FRAMEWORK_BRANCH]
+                        Framework repo branch to use. Default=master
+  --config              Source input was a configuration file for building
+                        multiple regions at once
+  --dev                 Install this region to the production environment
+  --prod                Install this region to the development environment
+  --silent              Install this region without the prompt, mostly for
+                        scripts
+  --test                Install this region to the test site. Only valid if
+                        dev or prod is also selected
+```
+
+### Instructions
+
 #### For a single region
 To run the script at a command prompt, run the following command:
 
