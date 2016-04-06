@@ -211,7 +211,8 @@ def copy_region_files(workspace, region_dest):
     files = ['region.json', 'partners.html', 'Proxy.config']
     copy_files(files, src_dir)
 
-    directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs']
+    directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs',
+                   'locales']
     copy_dirs(directories, src_dir)
 
 
