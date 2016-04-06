@@ -2,7 +2,7 @@
 
 ;------------------------------------------------------------------------------
 ; Install a region-specific version of the Geosite Framework
-; 
+;
 ; NAME      - For naming files and URLs (should not contain spaces)
 ; NICE_NAME - For display and titles
 ;
@@ -38,8 +38,9 @@ Section "Web Files"
     File /r  ..\GeositeFramework\src\GeositeFramework\region.json
     File /nonfatal ..\GeositeFramework\src\GeositeFramework\partners.html
     File /r  ..\GeositeFramework\src\GeositeFramework\Scripts
-    
+
     ; Common but optional additional directories to copy
+    File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\locales
     File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\xml
     File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\sims
     File /nonfatal /r ..\GeositeFramework\src\GeositeFramework\methods
