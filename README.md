@@ -156,3 +156,4 @@ The build machine will need the following dependencies:
   * ``MSBuild.exe``: This should be available if the .NET SDK v4 has been installed
   * ``NSIS``: Installer script system. Download at http://nsis.sourceforge.net/Main_Page. Must be available on the ``PATH``.
   * ``git``: The git source control command must be available on the ``PATH``. http://git-scm.com/downloads
+  * ``Visual Studio 2012``: The Express Edition for Web (or Pro) is required for properly building the C# Web Application.  It can be downloaded for free at: https://www.microsoft.com/en-us/download/details.aspx?id=30669

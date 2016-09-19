@@ -313,6 +313,10 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
 def compile_project(root):
     """ Compile the .NET project with MSBuild """
     os.chdir(root)
+
+    # Consent to Nuget Package Restore by default
+    os.environ['EnableNuGetPackageRestore'] = 'True'
+
     verbosity = '/verbosity:%s' % MSB_V
     execute([MSBUILD_PATH, verbosity, '/p:Configuration=Release',
             'GeositeFramework\src\GeositeFramework.sln'])
