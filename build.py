@@ -283,6 +283,12 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
 
     repo_url = posixpath.join('https://github.com/' '%s.git' % full_repo)
     clone_args = ['git', 'clone', '--quiet', repo_url]
+
+    # Reduce the amount of git history that is cloned if the history is not
+    # needed.
+    if version is None:
+        clone_args.extend(['--depth', '1', '--no-single-branch'])
+
     if target_dir:
         clone_args.append(target_dir)
 
