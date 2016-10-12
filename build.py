@@ -202,6 +202,13 @@ def fetch_plugins(plugins, branch=None):
         clone_repo(full_repo, target_dir, version, branch)
 
 
+def remove_git_dir(target_dir):
+    """ Remove git files from installed framework components """
+    parent_dir = os.getcwd()
+    args = ['rm', '-rf', ('%s\\%s\\.git') % (parent_dir, target_dir)]
+    execute(args)
+
+
 def copy_region_files(workspace, region_dest):
     """ Move region specific files into the framework base """
     src_dir = os.path.join(workspace, FRAMEWORK_REPO,
@@ -283,6 +290,12 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
 
     repo_url = posixpath.join('https://github.com/' '%s.git' % full_repo)
     clone_args = ['git', 'clone', '--quiet', repo_url]
+
+    # Reduce the amount of git history that is cloned if the history is not
+    # needed.
+    if version is None:
+        clone_args.extend(['--depth', '1', '--no-single-branch'])
+
     if target_dir:
         clone_args.append(target_dir)
 
@@ -308,6 +321,9 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         os.chdir(dest)
         execute(['git', 'reset', '--hard', version])
         os.chdir(original_dir)
+
+    # Clean-up. Git specific files are not needed for the installation
+    remove_git_dir(dest)
 
 
 def compile_project(root):
