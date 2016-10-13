@@ -205,7 +205,7 @@ def fetch_plugins(plugins, branch=None):
 def remove_git_dir(target_dir):
     """ Remove git files from installed framework components """
     parent_dir = os.getcwd()
-    args = ['rm', '-rf', ('%s\\%s\\.git') % (parent_dir, target_dir)]
+    args = ['rmdir', '/s', '/q', ('%s\\%s\\.git') % (parent_dir, target_dir)]
     execute(args)
 
 
