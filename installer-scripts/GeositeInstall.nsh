@@ -31,7 +31,7 @@ Section "Web Files"
     File /r  ..\GeositeFramework\src\GeositeFramework\css
     File /r  ..\GeositeFramework\src\GeositeFramework\img
     File /r  ..\GeositeFramework\src\GeositeFramework\js
-    File /r  ..\GeositeFramework\src\GeositeFramework\fonts
+    File /nonfatal /r  ..\GeositeFramework\src\GeositeFramework\fonts
     File /r  ..\GeositeFramework\src\GeositeFramework\plugins
     File /r  ..\GeositeFramework\src\GeositeFramework\sample_plugins
     File /r  ..\GeositeFramework\src\GeositeFramework\proxy.ashx
