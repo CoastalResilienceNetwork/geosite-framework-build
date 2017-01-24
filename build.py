@@ -372,10 +372,10 @@ if (__name__ == '__main__'):
                         help='Source input was a configuration file for ' +
                              'building multiple regions at once')
     parser.add_argument('--dev', default=False, action='store_true',
-                        help='Install this region to the production ' +
+                        help='Install this region to the development ' +
                              'environment')
     parser.add_argument('--prod', default=False, action='store_true',
-                        help='Install this region to the development ' +
+                        help='Install this region to the production ' +
                              'environment')
     parser.add_argument('--silent', default=False, action='store_true',
                         help='Install this region without the prompt, ' +
