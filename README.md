@@ -29,8 +29,8 @@ optional arguments:
                         Framework repo branch to use. Default=master
   --config              Source input was a configuration file for building
                         multiple regions at once
-  --dev                 Install this region to the production environment
-  --prod                Install this region to the development environment
+  --dev                 Install this region to the development environment
+  --prod                Install this region to the production environment
   --silent              Install this region without the prompt, mostly for
                         scripts
   --test                Install this region to the test site. Only valid if
@@ -71,7 +71,7 @@ If the build script is running on a machine with IIS, you can have it automatica
 The following convention applies for auto-installation:
 
 _The repo name contains the url and and install path and ends with `-region`.  For instance `gulfmex-region` will be installed to `C:\projects\TNC\gulfmex` at the url `gulfmex`._
- 
+
 #### Using the build script to set up a development environment
 The same script leaves all of the intermediate code in the ``[workspace]\build`` directory so that plugin developers need only to create an IIS Application which points to ``[workspace]\build\GeositeFramework\src\GeositeFramework``.  This will be a working version of the region and all of its plugins, ready to be served.
 
@@ -139,7 +139,7 @@ plugins.json should be a valid json document.  You can use an online tool such a
   * ``frameworkVersion``:  If the region wants to target an older framework git commit enter the sha, if not supplied it will pull the most recent version.
   * ``repo``: github.com repository name.
   * ``name``: The plugin directory to copy the code into in the region site.  It should be the directory that the region plugin config will be in.
-  * ``ver``: Optional.  The git commit to target in the plugin repo, if not supplied it will pull the most recent version. 
+  * ``ver``: Optional.  The git commit to target in the plugin repo, if not supplied it will pull the most recent version.
   * ``org``: Optional.  The github org this repo belongs to.  Default is CoastalResilienceNetwork.
 
 ### Setting up a Plugin Repo
