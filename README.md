@@ -23,13 +23,14 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   --region-branch [REGION_BRANCH]
-                        Region repo branch to use. Overridden by --dev and
-                        --prod options. Default=master
+                        Region repo branch to use. Default=master
   --framework-branch [FRAMEWORK_BRANCH]
                         Framework repo branch to use. Default=master
   --config              Source input was a configuration file for building
                         multiple regions at once
-  --dev                 Install this region to the development environment
+  --dev                 Install this region to the development environment,
+                        prefering `development` branch available, unless
+                        `--region_branch` is specified
   --prod                Install this region to the production environment
   --silent              Install this region without the prompt, mostly for
                         scripts
@@ -59,7 +60,7 @@ To build a region in another github organization, an example could be:
 
 which will build the ``azavea/TNC-LA-Freshwater`` region, assuming the region has been updated to conform to the build script requirements (See: Setting up a Region Repo)
 
-If you want to use a different repository branch for the region, you can use the `--region-branch` argument. For example, to build a branch of the gulfmex region titled `configtest`, run `python build.py gulfmex-region --region-branch configtest`. You can also build a different branch of the framework using the `--framework-branch` argument. Both arguments can be used at the same time, but note that the `--prod` and `--dev` flags take precedent and will use the `master` and `development` branches, respectively, no matter what branches are specified by the other arguments. Also, at this time, neither of the branches can be specified when building sites from a config file.
+If you want to use a different repository branch for the region, you can use the `--region-branch` argument. For example, to build a branch of the gulfmex region titled `configtest`, run `python build.py gulfmex-region --region-branch configtest`. This will override the region branch used if you also specify `--dev` `(development)` or `--prod` `(master)`. Also, at this time, neither of the branches can be specified when building sites from a config file.
 
 The executable installer will be in the ``[workspace]\output`` folder after the script runs successfully.
 

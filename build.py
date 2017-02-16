@@ -53,8 +53,15 @@ def build_region(region, path, full_framework, framework_branch=None,
     # If installing to dev site, favor a branch named 'development' for the
     # region repo and any plugins, but don't fail if it doesn't exist
     # This is the convention used by TNC developers to introduce new features
-    region_branch = ('development' if do_install and not is_prod else
-                     region_branch)
+    if region_branch:
+        # An override was provided, use it
+        region_branch = region_branch
+    elif do_install and is_prod:
+        # Production build, use master (default)
+        region_branch = None
+    elif do_install and not is_prod:
+        # Dev site, with no region-branch override
+        region_branch = 'development'
 
     clone_repo(region, region_dest, branch=region_branch)
 
@@ -101,7 +108,7 @@ def install(region, path, is_prod=False):
     install_path = os.path.join(root_path, region)
 
     args = [exe_name,
-            '/S',
+	    '/S',
             '/WEBSITE_NAME=%s' % website,
             '/APP_URL=%s' % url,
             '/REINSTALL_OVER=true',
