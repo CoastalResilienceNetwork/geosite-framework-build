@@ -6,7 +6,9 @@ import posixpath
 import shutil
 import stat
 import sys
+import distutils
 
+from distutils.dir_util import copy_tree
 from subprocess import call
 
 # ******************************
@@ -67,15 +69,8 @@ def build_region(region, path, full_framework, framework_branch=None,
 
     fetch_framework_and_plugins(region_dest, framework_branch, region_branch)
     copy_region_files(workspace, region_dest)
-    compile_project(workspace)
-
-    if (is_test):
-        region_name = "test"
-
-    make_installer(workspace, region_dest, region_name, is_prod)
-
-    if do_install:
-        install(region_name, path, is_prod)
+    build_project(workspace)
+    zip_project(workspace, region_name)
 
     print ""
     print "---------------------------------------"
@@ -256,17 +251,13 @@ def handle_remove_readonly(func, path, exc):
 
 
 def overwrite_copy(file_or_dir, dest, single_file=False):
-    """ Perform an XCOPY with optional recursion for child directories """
+    """ Copy files or folders to the specified destination """
     try:
         if single_file:
             shutil.copy(file_or_dir, dest)
         else:
-            if os.path.exists(dest):
-                shutil.rmtree(dest)
-            shutil.copytree(file_or_dir, dest)
-    except IOError as e:
-        print(e)
-    except OSError as e:
+            copy_tree(file_or_dir, dest)
+    except (IOError, OSError, distutils.errors.DistutilsFileError) as e:
         print(e)
 
 
@@ -336,16 +327,21 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
     remove_git_dir(dest)
 
 
-def compile_project(root):
-    """ Compile the .NET project with MSBuild """
-    os.chdir(root)
+def build_project(root):
+    """ Run framework Python scripts to build static site. """
+    framework_dir = os.path.join(root, 'GeositeFramework')
+    os.chdir(framework_dir)
 
-    # Consent to Nuget Package Restore by default
-    os.environ['EnableNuGetPackageRestore'] = 'True'
+    # Run build script
+    execute(['python', 'scripts/main.py'])
 
-    verbosity = '/verbosity:%s' % MSB_V
-    execute([MSBUILD_PATH, verbosity, '/p:Configuration=Release',
-            'GeositeFramework\src\GeositeFramework.sln'])
+
+def zip_project(root, region_name):
+    """ Zip up the built source files """
+    src_dir = os.path.join(root, 'GeositeFramework', 'src')
+    parent_dir = os.path.join('..', '..')
+    shutil.make_archive(os.path.join(parent_dir, 'output',
+                        region_name), 'zip', src_dir)
 
 
 def execute(call_args, additional_success_codes=[]):
