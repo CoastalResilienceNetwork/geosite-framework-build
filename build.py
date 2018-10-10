@@ -212,8 +212,9 @@ def fetch_plugins(plugins, branch=None):
 def remove_git_dir(target_dir):
     """ Remove git files from installed framework components """
     parent_dir = os.getcwd()
-    args = ['rmdir', '/s', '/q', ('%s\\%s\\.git') % (parent_dir, target_dir)]
-    execute(args)
+    git_dir = os.path.join(parent_dir, target_dir, '.git')
+    shutil.rmtree(git_dir, ignore_errors=False,
+                  onerror=handle_remove_readonly)
 
 
 def copy_region_files(workspace, region_dest):
@@ -231,15 +232,15 @@ def copy_region_files(workspace, region_dest):
 
 
 def copy_files(files, src_dir):
-    for file in files:
-        print 'Copying %s...' % file
-        overwrite_copy(file, src_dir)
+    for f in files:
+        print 'Copying %s...' % f
+        overwrite_copy(f, src_dir, True)
 
 
 def copy_dirs(directories, src_dir):
     for directory in directories:
         print 'Copying %s...' % directory
-        overwrite_copy(directory, os.path.join(src_dir, directory), True, True)
+        overwrite_copy(directory, os.path.join(src_dir, directory))
 
 
 def handle_remove_readonly(func, path, exc):
@@ -254,17 +255,19 @@ def handle_remove_readonly(func, path, exc):
         raise
 
 
-def overwrite_copy(file, dest, recursive=False, assume_dir=False):
+def overwrite_copy(file_or_dir, dest, single_file=False):
     """ Perform an XCOPY with optional recursion for child directories """
-    copy_args = ['xcopy', file, dest, '/Y', '/Q']
-    if recursive:
-        copy_args.append('/S')
-
-    if assume_dir:
-        copy_args.append('/I')
-
-    # Exit code 0 (success) and 4 (No files to copy) should succeed
-    execute(copy_args, [4])
+    try:
+        if single_file:
+            shutil.copy(file_or_dir, dest)
+        else:
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree(file_or_dir, dest)
+    except IOError as e:
+        print(e)
+    except OSError as e:
+        print(e)
 
 
 def setup_workspace(path):
@@ -351,7 +354,7 @@ def execute(call_args, additional_success_codes=[]):
         additional_success_codes that should be considered non-errors
     """
 
-    exit = call(call_args, shell=True)
+    exit = call(" ".join(call_args), shell=True)
     if exit != 0 and exit not in additional_success_codes:
         print "Call to %s failed" % call_args
         sys.exit()
