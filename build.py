@@ -134,24 +134,27 @@ def copy_region_files(workspace, region_dest):
                            'src', 'GeositeFramework')
     os.chdir(os.path.join(workspace, region_dest))
 
-    files = ['region.json', 'partners.html', 'Proxy.config']
-    copy_files(files, src_dir)
+    copy_files(['region.json'], src_dir)
+
+    optional_files = ['partners.html', 'Proxy.config']
+    copy_files(optional_files, src_dir, optional=True)
 
     directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs',
                    'locales']
-    copy_dirs(directories, src_dir)
+    copy_dirs(directories, src_dir, optional=True)
 
 
-def copy_files(files, src_dir):
+def copy_files(files, src_dir, optional=False):
     for f in files:
         print 'Copying %s...' % f
-        overwrite_copy(f, src_dir, True)
+        overwrite_copy(f, src_dir, True, optional)
 
 
-def copy_dirs(directories, src_dir):
+def copy_dirs(directories, src_dir, optional=False):
     for directory in directories:
         print 'Copying %s...' % directory
-        overwrite_copy(directory, os.path.join(src_dir, directory))
+        overwrite_copy(directory, os.path.join(src_dir, directory),
+                       optional=optional)
 
 
 def handle_remove_readonly(func, path, exc):
@@ -166,7 +169,7 @@ def handle_remove_readonly(func, path, exc):
         raise
 
 
-def overwrite_copy(file_or_dir, dest, single_file=False):
+def overwrite_copy(file_or_dir, dest, single_file=False, optional=False):
     """ Copy files or folders to the specified destination """
     try:
         if single_file:
@@ -174,7 +177,14 @@ def overwrite_copy(file_or_dir, dest, single_file=False):
         else:
             copy_tree(file_or_dir, dest)
     except (IOError, OSError, distutils.errors.DistutilsFileError) as e:
-        print(e)
+        if (optional):
+            kind = 'file' if single_file else 'directory'
+            msg = "Failed to copy {} {}. {}. " \
+                  "{} is optional, skipping.".format(file_or_dir, kind, e,
+                                                     file_or_dir)
+            print(msg)
+        else:
+            sys.exit(e)
 
 
 def setup_workspace(path):
