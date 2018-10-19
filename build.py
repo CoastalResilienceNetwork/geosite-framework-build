@@ -142,7 +142,7 @@ def copy_region_files(workspace, region_dest):
                            'src', 'GeositeFramework')
     os.chdir(os.path.join(workspace, region_dest))
 
-    copy_files(['region.json'], src_dir)
+    copy_files(['region.json', 'version.txt'], src_dir)
 
     optional_files = ['partners.html', 'Proxy.config']
     copy_files(optional_files, src_dir, optional=True)
@@ -256,6 +256,15 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         os.chdir(dest)
         execute(['git', 'reset', '--hard', version])
         os.chdir(original_dir)
+
+    # Write version.txt file to keep track of current git sha for repo
+    version_path = 'version.txt'
+    if os.path.exists(os.path.join(dest, 'src')):
+        # Put the version.txt file in the src dir if it exists
+        version_path = os.path.join('src', version_path)
+    os.chdir(dest)
+    execute(['git', 'rev-parse', '--short', 'HEAD', '>', version_path])
+    os.chdir(original_dir)
 
     # Clean-up. Git specific files are not needed anymore
     remove_git_dir(dest)
