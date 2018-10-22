@@ -112,8 +112,7 @@ def fetch_framework_and_plugins(region_dest, framework_branch=None,
 def fetch_plugins(plugins, branch=None):
     """ Clone each specified plugin at its optional version """
 
-    plugin_dir = os.path.join(FRAMEWORK_REPO, 'src',
-                              'GeositeFramework', 'plugins')
+    plugin_dir = os.path.join(FRAMEWORK_REPO, 'src', 'plugins')
 
     for plugin in plugins:
         # If org wasn't provided, assume CoastalResilienceNetwork
@@ -138,8 +137,7 @@ def remove_git_dir(target_dir):
 
 def copy_region_files(workspace, region_dest):
     """ Move region specific files into the framework base """
-    src_dir = os.path.join(workspace, FRAMEWORK_REPO,
-                           'src', 'GeositeFramework')
+    src_dir = os.path.join(workspace, FRAMEWORK_REPO, 'src')
     os.chdir(os.path.join(workspace, region_dest))
 
     copy_files(['region.json', 'version.txt'], src_dir)
