@@ -140,7 +140,8 @@ def copy_region_files(workspace, region_dest):
     src_dir = os.path.join(workspace, FRAMEWORK_REPO, 'src')
     os.chdir(os.path.join(workspace, region_dest))
 
-    copy_files(['region.json', 'version.txt'], src_dir)
+    copy_files(['region.json'], src_dir)
+    append_copy('version.txt', os.path.join(src_dir, 'version.txt'))
 
     optional_files = ['partners.html', 'Proxy.config']
     copy_files(optional_files, src_dir, optional=True)
@@ -191,6 +192,19 @@ def overwrite_copy(file_or_dir, dest, single_file=False, optional=False):
             print(msg)
         else:
             sys.exit(e)
+
+
+def append_copy(new_file, existing_file):
+    """ Append the contents of the destination file with the contents
+    of the new file.
+    """
+    if os.path.isfile(existing_file):
+        with open(existing_file, 'a') as ef:
+            with open(new_file) as nf:
+                for line in nf:
+                    ef.write(line)
+    else:
+        overwrite_copy(new_file, existing_file, single_file=True)
 
 
 def setup_workspace(path):
