@@ -306,7 +306,6 @@ if (__name__ == '__main__'):
                         'Default=%s' % DEFAULT_ORG)
     parser.add_argument('--region-branch',
                         nargs='?', help='Region repo branch to use. ' +
-                        'Overridden by --dev and --prod options. ' +
                         'Default=%s' % DEFAULT_REGION_BRANCH)
     parser.add_argument('--framework-branch',
                         nargs='?', help='Framework repo branch to use. ' +
@@ -315,9 +314,13 @@ if (__name__ == '__main__'):
                         help='Source input was a configuration file for ' +
                              'building multiple regions at once')
     parser.add_argument('--dev', default=False, action='store_true',
-                        help='Use the development branch for the region')
+                        help='Use the master branch for the region and ' +
+                             'framework unless --region-branch and/or ' +
+                             '--framework-branch is specified')
     parser.add_argument('--prod', default=False, action='store_true',
-                        help='Use the master branch for the region')
+                        help='Use the master branch for the region and ' +
+                             'framework unless --region-branch and/or ' +
+                             '--framework-branch is specified')
 
     args = parser.parse_args()
 
