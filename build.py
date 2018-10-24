@@ -258,6 +258,9 @@ def build_project(root):
     framework_dir = os.path.join(root, 'GeositeFramework')
     os.chdir(framework_dir)
 
+    # Install framework requirements
+    execute(['python', 'scripts/update.py'])
+
     # Run build script
     execute(['python', 'scripts/main.py'])
 
