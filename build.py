@@ -14,32 +14,39 @@ from subprocess import call
 
 FRAMEWORK_REPO = 'GeositeFramework'
 DEFAULT_ORG = 'CoastalResilienceNetwork'
-DEFAULT_BRANCH = 'master'
+DEFAULT_FRAMEWORK_BRANCH = 'develop'
+DEFAULT_REGION_BRANCH = 'development'
 BUILD_DIR = 'build'     # Build workspace
-OUTPUT_DIR = 'output'   # Installer artifact directory
+OUTPUT_DIR = 'output'   # Zip artifact directory
 
 
-def build_region(region, path, full_framework, framework_branch=None,
-                 region_branch=None, is_prod=False):
-    """ Build a GeositeFramework Region Installer and optionally install it """
+def build_region(region, path, full_framework, override_framework_branch=None,
+                 override_region_branch=None, is_prod=False, is_dev=False):
+    """ Build a GeositeFramework Region site and zip it up for installation """
     workspace = setup_workspace(path)
 
     # Get the repo name and to avoid confusion name it a _config dir
     region_dest = '%s_config' % region.split('/')[1]
     region_name = get_region_name(region)
 
-    # If installing to dev site, favor a branch named 'development' for the
-    # region repo and any plugins, but don't fail if it doesn't exist
-    # This is the convention used by TNC developers to introduce new features
-    if region_branch:
-        # An override was provided, use it
-        region_branch = region_branch
-    elif is_prod:
-        # Production build, use master (default)
-        region_branch = None
-    else:
-        # Dev site, with no region-branch override
+    # Set the framework and region branches based off the arguments
+    # provided to the script. Plugin branch will use region branch.
+    if is_prod:
+        region_branch = 'master'
+        framework_branch = 'master'
+    elif is_dev:
         region_branch = 'development'
+        framework_branch = 'develop'
+    else:
+        region_branch = DEFAULT_REGION_BRANCH
+        framework_branch = DEFAULT_FRAMEWORK_BRANCH
+
+    # Users can also directly specify branches to use. If they do,
+    # use those instead of the branches set above.
+    if override_framework_branch:
+        framework_branch = override_framework_branch
+    if override_region_branch:
+        region_branch = override_region_branch
 
     clone_repo(region, region_dest, branch=region_branch)
 
@@ -66,7 +73,7 @@ def get_region_name(repo_name):
     return region
 
 
-def build_from_config(config, workspace_dir, full_framework, is_prod):
+def build_from_config(config, workspace_dir, full_framework, is_prod, is_dev):
     """Build each region in the specified config file"""
     if not os.path.isfile(config):
         print '%s cannot be found in %s' % (config, workspace_dir)
@@ -76,7 +83,8 @@ def build_from_config(config, workspace_dir, full_framework, is_prod):
         regions = config_file.readlines()
         for region in regions:
             build_region(region.rstrip(), workspace_dir, full_framework,
-                         DEFAULT_BRANCH, DEFAULT_BRANCH, is_prod)
+                         DEFAULT_FRAMEWORK_BRANCH, DEFAULT_REGION_BRANCH,
+                         is_prod, is_dev)
 
 
 def fetch_framework_and_plugins(region_dest, framework_branch=None,
@@ -121,7 +129,7 @@ def fetch_plugins(plugins, branch=None):
 
 
 def remove_git_dir(target_dir):
-    """ Remove git files from installed framework components """
+    """ Remove git files from framework components """
     parent_dir = os.getcwd()
     git_dir = os.path.join(parent_dir, target_dir, '.git')
     shutil.rmtree(git_dir, ignore_errors=False,
@@ -249,7 +257,7 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         execute(['git', 'reset', '--hard', version])
         os.chdir(original_dir)
 
-    # Clean-up. Git specific files are not needed for the installation
+    # Clean-up. Git specific files are not needed anymore
     remove_git_dir(dest)
 
 
@@ -296,33 +304,39 @@ if (__name__ == '__main__'):
     parser.add_argument('org', default=DEFAULT_ORG, nargs='?',
                         help='Github.com Org where the repo region resides. ' +
                         'Default=%s' % DEFAULT_ORG)
-    parser.add_argument('--region-branch', default=DEFAULT_BRANCH,
+    parser.add_argument('--region-branch',
                         nargs='?', help='Region repo branch to use. ' +
                         'Overridden by --dev and --prod options. ' +
-                        'Default=%s' % DEFAULT_BRANCH)
-    parser.add_argument('--framework-branch', default=DEFAULT_BRANCH,
+                        'Default=%s' % DEFAULT_REGION_BRANCH)
+    parser.add_argument('--framework-branch',
                         nargs='?', help='Framework repo branch to use. ' +
-                        'Default=%s' % DEFAULT_BRANCH)
+                        'Default=%s' % DEFAULT_FRAMEWORK_BRANCH)
     parser.add_argument('--config', default=False, action='store_true',
                         help='Source input was a configuration file for ' +
                              'building multiple regions at once')
+    parser.add_argument('--dev', default=False, action='store_true',
+                        help='Use the development branch for the region')
     parser.add_argument('--prod', default=False, action='store_true',
                         help='Use the master branch for the region')
 
     args = parser.parse_args()
 
+    if args.prod and args.dev:
+        print "Please choose only '--prod' or '--dev'"
+        sys.exit()
+
     is_prod = args.prod
-    framework_branch = (args.framework_branch if args.framework_branch
-                        else DEFAULT_BRANCH)
-    region_branch = (args.region_branch if args.region_branch
-                     else DEFAULT_BRANCH)
+    is_dev = args.dev
+
+    framework_branch = args.framework_branch if args.framework_branch else None
+    region_branch = args.region_branch if args.region_branch else None
 
     full_framework = posixpath.join(DEFAULT_ORG, FRAMEWORK_REPO)
     cwd = os.getcwd()
 
     if args.config:
-        build_from_config(args.source, cwd, full_framework, is_prod)
+        build_from_config(args.source, cwd, full_framework, is_prod, is_dev)
     else:
         region = posixpath.join(args.org, args.source)
         build_region(region, cwd, full_framework, framework_branch,
-                     region_branch, is_prod)
+                     region_branch, is_prod, is_dev)
