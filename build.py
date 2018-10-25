@@ -112,8 +112,7 @@ def fetch_framework_and_plugins(region_dest, framework_branch=None,
 def fetch_plugins(plugins, branch=None):
     """ Clone each specified plugin at its optional version """
 
-    plugin_dir = os.path.join(FRAMEWORK_REPO, 'src',
-                              'GeositeFramework', 'plugins')
+    plugin_dir = os.path.join(FRAMEWORK_REPO, 'src', 'plugins')
 
     for plugin in plugins:
         # If org wasn't provided, assume CoastalResilienceNetwork
@@ -138,11 +137,11 @@ def remove_git_dir(target_dir):
 
 def copy_region_files(workspace, region_dest):
     """ Move region specific files into the framework base """
-    src_dir = os.path.join(workspace, FRAMEWORK_REPO,
-                           'src', 'GeositeFramework')
+    src_dir = os.path.join(workspace, FRAMEWORK_REPO, 'src')
     os.chdir(os.path.join(workspace, region_dest))
 
     copy_files(['region.json'], src_dir)
+    append_copy('version.txt', os.path.join(src_dir, 'version.txt'))
 
     optional_files = ['partners.html', 'Proxy.config']
     copy_files(optional_files, src_dir, optional=True)
@@ -193,6 +192,19 @@ def overwrite_copy(file_or_dir, dest, single_file=False, optional=False):
             print(msg)
         else:
             sys.exit(e)
+
+
+def append_copy(new_file, existing_file):
+    """ Append the contents of the destination file with the contents
+    of the new file.
+    """
+    if os.path.isfile(existing_file):
+        with open(existing_file, 'a') as ef:
+            with open(new_file) as nf:
+                for line in nf:
+                    ef.write(line)
+    else:
+        overwrite_copy(new_file, existing_file, single_file=True)
 
 
 def setup_workspace(path):
@@ -256,6 +268,15 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         os.chdir(dest)
         execute(['git', 'reset', '--hard', version])
         os.chdir(original_dir)
+
+    # Write version.txt file to keep track of current git sha for repo
+    version_path = 'version.txt'
+    if os.path.exists(os.path.join(dest, 'src')):
+        # Put the version.txt file in the src dir if it exists
+        version_path = os.path.join('src', version_path)
+    os.chdir(dest)
+    execute(['git', 'rev-parse', '--short', 'HEAD', '>', version_path])
+    os.chdir(original_dir)
 
     # Clean-up. Git specific files are not needed anymore
     remove_git_dir(dest)
