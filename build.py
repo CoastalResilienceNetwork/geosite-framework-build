@@ -6,80 +6,58 @@ import posixpath
 import shutil
 import stat
 import sys
+import distutils
 
+from distutils.dir_util import copy_tree
 from subprocess import call
 
-# ******************************
-# May need to change these for non-TNC installations
-# IIS Website names for production and development deployments
-PROD_SITE = 'Default Web Site'
-DEV_SITE = 'dev'
-
-# Root paths for production and development installations
-PROD_PATH = 'C:\\projects\\TNC'
-DEV_PATH = 'C:\\projects\\TNC\\dev'
-
-# Default installer name
-INSTALLER_NAME = 'output\\tnc-ca-%(region)s%(env)sSetup.exe'
-
-# ******************************
-
-# Default path for SDK installs of MSBuild
-MSBUILD_PATH = 'C:\\Windows\Microsoft.NET\\Framework\\v4.0.30319\\MSBuild.exe'
-# Assume that NSIS install path is on the path
-NSIS_EXE = 'makensis.exe'
 
 FRAMEWORK_REPO = 'GeositeFramework'
 DEFAULT_ORG = 'CoastalResilienceNetwork'
-DEFAULT_BRANCH = 'master'
+DEFAULT_FRAMEWORK_BRANCH = 'develop'
+DEFAULT_REGION_BRANCH = 'development'
 BUILD_DIR = 'build'     # Build workspace
-OUTPUT_DIR = 'output'   # Installer artifact directory
-# NSIS Compiler Verbosity Setting 0 (off) - 4 (all)
-NSIS_V = 0
-# MSBUILD Compiler Verbosity q[uiet], m[inimal], n[ormal], d[etailed]
-MSB_V = 'q'
+OUTPUT_DIR = 'output'   # Zip artifact directory
 
 
-def build_region(region, path, full_framework, framework_branch=None,
-                 region_branch=None, do_install=False, is_prod=False,
-                 is_test=False):
-    """ Build a GeositeFramework Region Installer and optionally install it """
+def build_region(region, path, full_framework, override_framework_branch=None,
+                 override_region_branch=None, is_prod=False, is_dev=False):
+    """ Build a GeositeFramework Region site and zip it up for installation """
     workspace = setup_workspace(path)
 
     # Get the repo name and to avoid confusion name it a _config dir
     region_dest = '%s_config' % region.split('/')[1]
     region_name = get_region_name(region)
 
-    # If installing to dev site, favor a branch named 'development' for the
-    # region repo and any plugins, but don't fail if it doesn't exist
-    # This is the convention used by TNC developers to introduce new features
-    if region_branch:
-        # An override was provided, use it
-        region_branch = region_branch
-    elif do_install and is_prod:
-        # Production build, use master (default)
-        region_branch = None
-    elif do_install and not is_prod:
-        # Dev site, with no region-branch override
+    # Set the framework and region branches based off the arguments
+    # provided to the script. Plugin branch will use region branch.
+    if is_prod:
+        region_branch = 'master'
+        framework_branch = 'master'
+    elif is_dev:
         region_branch = 'development'
+        framework_branch = 'develop'
+    else:
+        region_branch = DEFAULT_REGION_BRANCH
+        framework_branch = DEFAULT_FRAMEWORK_BRANCH
+
+    # Users can also directly specify branches to use. If they do,
+    # use those instead of the branches set above.
+    if override_framework_branch:
+        framework_branch = override_framework_branch
+    if override_region_branch:
+        region_branch = override_region_branch
 
     clone_repo(region, region_dest, branch=region_branch)
 
     fetch_framework_and_plugins(region_dest, framework_branch, region_branch)
     copy_region_files(workspace, region_dest)
-    compile_project(workspace)
-
-    if (is_test):
-        region_name = "test"
-
-    make_installer(workspace, region_dest, region_name, is_prod)
-
-    if do_install:
-        install(region_name, path, is_prod)
+    build_project(workspace)
+    zip_project(workspace, region_name)
 
     print ""
     print "---------------------------------------"
-    print "%s was build successfully" % region
+    print "%s was built successfully" % region
     print "---------------------------------------"
     print ""
 
@@ -95,31 +73,7 @@ def get_region_name(repo_name):
     return region
 
 
-def install(region, path, is_prod=False):
-    """Run the installer in silent mode to install to prod or dev website"""
-
-    print "Installing to %s" % ("production" if is_prod else "development")
-
-    exe_name = INSTALLER_NAME % {'region': region, 'env': '' if is_prod
-                                 else '-dev'}
-    url = region
-    website = PROD_SITE if is_prod else DEV_SITE
-    root_path = PROD_PATH if is_prod else DEV_PATH
-    install_path = os.path.join(root_path, region)
-
-    args = [exe_name,
-	    '/S',
-            '/WEBSITE_NAME=%s' % website,
-            '/APP_URL=%s' % url,
-            '/REINSTALL_OVER=true',
-            '/D=%s' % install_path]
-
-    os.chdir(path)
-    execute(args)
-
-
-def build_from_config(config, workspace_dir, full_framework, do_install,
-                      is_prod):
+def build_from_config(config, workspace_dir, full_framework, is_prod, is_dev):
     """Build each region in the specified config file"""
     if not os.path.isfile(config):
         print '%s cannot be found in %s' % (config, workspace_dir)
@@ -129,43 +83,8 @@ def build_from_config(config, workspace_dir, full_framework, do_install,
         regions = config_file.readlines()
         for region in regions:
             build_region(region.rstrip(), workspace_dir, full_framework,
-                         DEFAULT_BRANCH, DEFAULT_BRANCH,
-                         do_install, is_prod)
-
-
-def make_installer(workspace_dir, region_dest, region_name, is_prod=False):
-    os.chdir(workspace_dir)
-    install_scripts_dir = 'installer'
-    full_region_nsi_path = os.path.join(workspace_dir,
-                                        install_scripts_dir, 'installer.nsi')
-    template_nsi = os.path.join(install_scripts_dir, 'installer.nsi.tmpl')
-
-    print "Creating installer executable..."
-
-    # Get all of the NSIS installers scripts together in a single directory
-    os.mkdir(install_scripts_dir)
-    clone_repo('azavea/azavea-nsis', os.path.join(install_scripts_dir, 'NSIS'))
-    overwrite_copy('..\installer-scripts\*', install_scripts_dir)
-
-    # Load installer template
-    with open(template_nsi, 'r') as installer:
-        tmpl = installer.read()
-        installer_name = region_name + ('' if is_prod else '-dev')
-        installer_contents = tmpl % {'region': installer_name}
-
-        # Copy the region specific installer to the region_dest
-        with open(full_region_nsi_path, 'w') as output_nsi:
-            output_nsi.write(installer_contents)
-
-    # Compile an executable installer for this region
-    verbosity = '/V%s' % NSIS_V
-    execute([NSIS_EXE, verbosity, full_region_nsi_path])
-
-    # Copy the exe to the output dir
-    root_dir, _ = os.path.split(workspace_dir)
-    dest = os.path.join(root_dir, OUTPUT_DIR)
-    src = os.path.join(workspace_dir, install_scripts_dir, '*.exe')
-    overwrite_copy(src, dest)
+                         DEFAULT_FRAMEWORK_BRANCH, DEFAULT_REGION_BRANCH,
+                         is_prod, is_dev)
 
 
 def fetch_framework_and_plugins(region_dest, framework_branch=None,
@@ -193,8 +112,7 @@ def fetch_framework_and_plugins(region_dest, framework_branch=None,
 def fetch_plugins(plugins, branch=None):
     """ Clone each specified plugin at its optional version """
 
-    plugin_dir = os.path.join(FRAMEWORK_REPO, 'src',
-                              'GeositeFramework', 'plugins')
+    plugin_dir = os.path.join(FRAMEWORK_REPO, 'src', 'plugins')
 
     for plugin in plugins:
         # If org wasn't provided, assume CoastalResilienceNetwork
@@ -210,36 +128,40 @@ def fetch_plugins(plugins, branch=None):
 
 
 def remove_git_dir(target_dir):
-    """ Remove git files from installed framework components """
+    """ Remove git files from framework components """
     parent_dir = os.getcwd()
-    args = ['rmdir', '/s', '/q', ('%s\\%s\\.git') % (parent_dir, target_dir)]
-    execute(args)
+    git_dir = os.path.join(parent_dir, target_dir, '.git')
+    shutil.rmtree(git_dir, ignore_errors=False,
+                  onerror=handle_remove_readonly)
 
 
 def copy_region_files(workspace, region_dest):
     """ Move region specific files into the framework base """
-    src_dir = os.path.join(workspace, FRAMEWORK_REPO,
-                           'src', 'GeositeFramework')
+    src_dir = os.path.join(workspace, FRAMEWORK_REPO, 'src')
     os.chdir(os.path.join(workspace, region_dest))
 
-    files = ['region.json', 'partners.html', 'Proxy.config']
-    copy_files(files, src_dir)
+    copy_files(['region.json'], src_dir)
+    append_copy('version.txt', os.path.join(src_dir, 'version.txt'))
+
+    optional_files = ['partners.html', 'Proxy.config']
+    copy_files(optional_files, src_dir, optional=True)
 
     directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs',
                    'locales']
-    copy_dirs(directories, src_dir)
+    copy_dirs(directories, src_dir, optional=True)
 
 
-def copy_files(files, src_dir):
-    for file in files:
-        print 'Copying %s...' % file
-        overwrite_copy(file, src_dir)
+def copy_files(files, src_dir, optional=False):
+    for f in files:
+        print 'Copying %s...' % f
+        overwrite_copy(f, src_dir, True, optional)
 
 
-def copy_dirs(directories, src_dir):
+def copy_dirs(directories, src_dir, optional=False):
     for directory in directories:
         print 'Copying %s...' % directory
-        overwrite_copy(directory, os.path.join(src_dir, directory), True, True)
+        overwrite_copy(directory, os.path.join(src_dir, directory),
+                       optional=optional)
 
 
 def handle_remove_readonly(func, path, exc):
@@ -254,17 +176,35 @@ def handle_remove_readonly(func, path, exc):
         raise
 
 
-def overwrite_copy(file, dest, recursive=False, assume_dir=False):
-    """ Perform an XCOPY with optional recursion for child directories """
-    copy_args = ['xcopy', file, dest, '/Y', '/Q']
-    if recursive:
-        copy_args.append('/S')
+def overwrite_copy(file_or_dir, dest, single_file=False, optional=False):
+    """ Copy files or folders to the specified destination """
+    try:
+        if single_file:
+            shutil.copy(file_or_dir, dest)
+        else:
+            copy_tree(file_or_dir, dest)
+    except (IOError, OSError, distutils.errors.DistutilsFileError) as e:
+        if (optional):
+            kind = 'file' if single_file else 'directory'
+            msg = "Failed to copy {} {}. {}. " \
+                  "{} is optional, skipping.".format(file_or_dir, kind, e,
+                                                     file_or_dir)
+            print(msg)
+        else:
+            sys.exit(e)
 
-    if assume_dir:
-        copy_args.append('/I')
 
-    # Exit code 0 (success) and 4 (No files to copy) should succeed
-    execute(copy_args, [4])
+def append_copy(new_file, existing_file):
+    """ Append the contents of the destination file with the contents
+    of the new file.
+    """
+    if os.path.isfile(existing_file):
+        with open(existing_file, 'a') as ef:
+            with open(new_file) as nf:
+                for line in nf:
+                    ef.write(line)
+    else:
+        overwrite_copy(new_file, existing_file, single_file=True)
 
 
 def setup_workspace(path):
@@ -329,20 +269,37 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         execute(['git', 'reset', '--hard', version])
         os.chdir(original_dir)
 
-    # Clean-up. Git specific files are not needed for the installation
+    # Write version.txt file to keep track of current git sha for repo
+    version_path = 'version.txt'
+    if os.path.exists(os.path.join(dest, 'src')):
+        # Put the version.txt file in the src dir if it exists
+        version_path = os.path.join('src', version_path)
+    os.chdir(dest)
+    execute(['git', 'rev-parse', '--short', 'HEAD', '>', version_path])
+    os.chdir(original_dir)
+
+    # Clean-up. Git specific files are not needed anymore
     remove_git_dir(dest)
 
 
-def compile_project(root):
-    """ Compile the .NET project with MSBuild """
-    os.chdir(root)
+def build_project(root):
+    """ Run framework Python scripts to build static site. """
+    framework_dir = os.path.join(root, 'GeositeFramework')
+    os.chdir(framework_dir)
 
-    # Consent to Nuget Package Restore by default
-    os.environ['EnableNuGetPackageRestore'] = 'True'
+    # Install framework requirements
+    execute(['python', 'scripts/update.py'])
 
-    verbosity = '/verbosity:%s' % MSB_V
-    execute([MSBUILD_PATH, verbosity, '/p:Configuration=Release',
-            'GeositeFramework\src\GeositeFramework.sln'])
+    # Run build script
+    execute(['python', 'scripts/main.py'])
+
+
+def zip_project(root, region_name):
+    """ Zip up the built source files """
+    src_dir = os.path.join(root, 'GeositeFramework', 'src')
+    parent_dir = os.path.join('..', '..')
+    shutil.make_archive(os.path.join(parent_dir, 'output',
+                        region_name), 'zip', src_dir)
 
 
 def execute(call_args, additional_success_codes=[]):
@@ -351,7 +308,7 @@ def execute(call_args, additional_success_codes=[]):
         additional_success_codes that should be considered non-errors
     """
 
-    exit = call(call_args, shell=True)
+    exit = call(" ".join(call_args), shell=True)
     if exit != 0 and exit not in additional_success_codes:
         print "Call to %s failed" % call_args
         sys.exit()
@@ -368,59 +325,42 @@ if (__name__ == '__main__'):
     parser.add_argument('org', default=DEFAULT_ORG, nargs='?',
                         help='Github.com Org where the repo region resides. ' +
                         'Default=%s' % DEFAULT_ORG)
-    parser.add_argument('--region-branch', default=DEFAULT_BRANCH,
+    parser.add_argument('--region-branch',
                         nargs='?', help='Region repo branch to use. ' +
-                        'Overridden by --dev and --prod options. ' +
-                        'Default=%s' % DEFAULT_BRANCH)
-    parser.add_argument('--framework-branch', default=DEFAULT_BRANCH,
+                        'Default=%s' % DEFAULT_REGION_BRANCH)
+    parser.add_argument('--framework-branch',
                         nargs='?', help='Framework repo branch to use. ' +
-                        'Default=%s' % DEFAULT_BRANCH)
+                        'Default=%s' % DEFAULT_FRAMEWORK_BRANCH)
     parser.add_argument('--config', default=False, action='store_true',
                         help='Source input was a configuration file for ' +
                              'building multiple regions at once')
     parser.add_argument('--dev', default=False, action='store_true',
-                        help='Install this region to the development ' +
-                             'environment')
+                        help='Use the master branch for the region and ' +
+                             'framework unless --region-branch and/or ' +
+                             '--framework-branch is specified')
     parser.add_argument('--prod', default=False, action='store_true',
-                        help='Install this region to the production ' +
-                             'environment')
-    parser.add_argument('--silent', default=False, action='store_true',
-                        help='Install this region without the prompt, ' +
-                             'mostly for scripts')
-    parser.add_argument('--test', default=False, action='store_true',
-                        help='Install this region to the test site. ' +
-                             'Only valid if dev or prod is also selected')
+                        help='Use the master branch for the region and ' +
+                             'framework unless --region-branch and/or ' +
+                             '--framework-branch is specified')
 
     args = parser.parse_args()
 
-    # Check if we are auto installing this build
     if args.prod and args.dev:
-        print "Please choose only 'prod' or 'dev'"
+        print "Please choose only '--prod' or '--dev'"
         sys.exit()
 
-    do_install = args.prod or args.dev
     is_prod = args.prod
-    is_test = args.test
-    framework_branch = (args.framework_branch if args.framework_branch
-                        else DEFAULT_BRANCH)
-    region_branch = (args.region_branch if args.region_branch
-                     else DEFAULT_BRANCH)
+    is_dev = args.dev
 
-    if do_install:
-        if not args.silent:
-            choice = raw_input('This will remove any current installation ' +
-                               'and install a new region website. Are you ' +
-                               'sure you wish to continue? [y/n]: ')
-            if choice.lower() not in ['y', 'yes']:
-                sys.exit()
+    framework_branch = args.framework_branch if args.framework_branch else None
+    region_branch = args.region_branch if args.region_branch else None
 
     full_framework = posixpath.join(DEFAULT_ORG, FRAMEWORK_REPO)
     cwd = os.getcwd()
 
     if args.config:
-        build_from_config(args.source, cwd, full_framework, do_install,
-                          is_prod)
+        build_from_config(args.source, cwd, full_framework, is_prod, is_dev)
     else:
         region = posixpath.join(args.org, args.source)
         build_region(region, cwd, full_framework, framework_branch,
-                     region_branch, do_install, is_prod, is_test)
+                     region_branch, is_prod, is_dev)

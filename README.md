@@ -1,7 +1,7 @@
 geosite-framework-build
 =======================
 
-Build script and optional auto-installer for GeositeFramework regions.
+Build script for GeositeFramework regions.
 
 ### Usage
 
@@ -9,7 +9,7 @@ Build script and optional auto-installer for GeositeFramework regions.
 $ python build.py -h
 usage: build.py [-h] [--region-branch [REGION_BRANCH]]
                 [--framework-branch [FRAMEWORK_BRANCH]] [--config] [--dev]
-                [--prod] [--silent] [--test]
+                [--prod]
                 source [org]
 
 Build a GeositeFramework region instance
@@ -28,14 +28,12 @@ optional arguments:
                         Framework repo branch to use. Default=master
   --config              Source input was a configuration file for building
                         multiple regions at once
-  --dev                 Install this region to the development environment,
-                        prefering `development` branch available, unless
-                        `--region_branch` is specified
-  --prod                Install this region to the production environment
-  --silent              Install this region without the prompt, mostly for
-                        scripts
-  --test                Install this region to the test site. Only valid if
-                        dev or prod is also selected
+  --dev                 Use the master branch for the region and framework
+                        unless --region-branch and/or --framework-branch is
+                        specified
+  --prod                Use the master branch for the region and framework
+                        unless --region-branch and/or --framework-branch is
+                        specified
 ```
 
 ### Instructions
@@ -62,22 +60,21 @@ which will build the ``azavea/TNC-LA-Freshwater`` region, assuming the region ha
 
 If you want to use a different repository branch for the region, you can use the `--region-branch` argument. For example, to build a branch of the gulfmex region titled `configtest`, run `python build.py gulfmex-region --region-branch configtest`. This will override the region branch used if you also specify `--dev` `(development)` or `--prod` `(master)`. Also, at this time, neither of the branches can be specified when building sites from a config file.
 
-The executable installer will be in the ``[workspace]\output`` folder after the script runs successfully.
+A zipfile with the contents of the site will be in the ``[workspace]\output`` folder after the script runs successfully.
 
-#### Auto-installing a region
-If the build script is running on a machine with IIS, you can have it automatically remove old versions and install the recently built version in either the `production` or `development` environment.  The command is modified to add the additional `--dev` or `--prod` argument:
+#### Installing a region
 
-`python build.py gulfmex-region --prod`
+The output of the build tool is a zipfile that contains the site contents. The contents are ready to be served from a cloud storage provider like AWS S3 or Azure Storage, or from a webserver like IIS. The steps to get the site hosted for each hosting environment will be different, but the basic idea is that the contents of the zipfile should be extracted to a folder, and then that folder should served as the base directory of the site. See the links below for specific instructions for each provider:
 
-The following convention applies for auto-installation:
-
-_The repo name contains the url and and install path and ends with `-region`.  For instance `gulfmex-region` will be installed to `C:\projects\TNC\gulfmex` at the url `gulfmex`._
+- [AWS S3](https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html)
+- [Azure Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-static-website)
+- [IIS](https://docs.microsoft.com/en-us/iis/manage/creating-websites/scenario-build-a-static-website-on-iis)
 
 #### Using the build script to set up a development environment
-The same script leaves all of the intermediate code in the ``[workspace]\build`` directory so that plugin developers need only to create an IIS Application which points to ``[workspace]\build\GeositeFramework\src\GeositeFramework``.  This will be a working version of the region and all of its plugins, ready to be served.
+The same script leaves all of the intermediate code in the ``[workspace]\build`` directory. This will be a working version of the region and all of its plugins, ready to be served.
 
 #### Building multiple regions at once
-The build script can build installers for multiple sites at once by use of a config file and a flag to the script.  If you created a Coastal Resilience file named ``ca.conf`` with the contents being one full Org/Repo per line:
+The build script can build multiple sites at once by use of a config file and a flag to the script.  If you created a Coastal Resilience file named ``ca.conf`` with the contents being one full Org/Repo per line:
 
 ```
 CoastalResilienceNetwork/gulf-of-mexico-region
@@ -89,18 +86,11 @@ You can then run the build script with the following:
 
 ``python build.py ca.conf --config``
 
-and it will build all regions listed in the conf file.  The output of all installers will still be in ``[workspace]\output``.  Note that the build process does *not* clear out the output directory, so you may also have old installers there.  The script *will* overwrite any files in ``output`` with newer versions.
-
-Building from a conf file can also auto install all regions with the same `--prod` or `--dev` commands:
-
-`python build.py ca.conf --config --dev`
+and it will build all regions listed in the conf file.  The output of all the sites will still be in ``[workspace]\output``.  Note that the build process does *not* clear out the output directory, so you may also have old zipfiles there.  The script *will* overwrite any files in ``output`` with newer versions.
 
 #### Errors and debugging the script
 ##### Error deleting ``build`` directory
-Occasionally, you may get an error that the ``build`` directory can not be deleted.  This can happen when IIS has a lock on a file coupled with a limitation with the python ``shutil.rmtree`` method on Windows.  Simply re-running the script will fix the issue.
-
-##### Errors with the .NET compiler or NSIS Compiler
-Both compilers are set to ``quiet`` mode so their output is supressed.  The top of the build script exposes settings to increase the verbosity of the compiler output.
+Occasionally, you may get an error that the ``build`` directory can not be deleted.  This can happen when Windows has a lock on a file coupled with a limitation with the python ``shutil.rmtree`` method on Windows.  Simply re-running the script will fix the issue.
 
 ### Setting up a Region Repo
 To see a complete example Region Repo, see [Gulf of Mexico](https://github.com/CoastalResilienceNetwork/gulf-of-mexico-region).
@@ -153,8 +143,5 @@ A plugin repo should contain all of the source code for a single plugin, specifi
 ### Installation Instructions
 The build machine will need the following dependencies:
 
-  * ``python 2.7+``: This is often included in ESRI installations, but should be accessible from the ``PATH``.
-  * ``MSBuild.exe``: This should be available if the .NET SDK v4 has been installed
-  * ``NSIS``: Installer script system. Download at http://nsis.sourceforge.net/Main_Page. Must be available on the ``PATH``.
+  * ``python 2.x``: This is often included in ESRI installations, but should be accessible from the ``PATH``.
   * ``git``: The git source control command must be available on the ``PATH``. http://git-scm.com/downloads
-  * ``Visual Studio 2012``: The Express Edition for Web (or Pro) is required for properly building the C# Web Application.  It can be downloaded for free at: https://www.microsoft.com/en-us/download/details.aspx?id=30669
