@@ -52,6 +52,7 @@ def build_region(region, path, full_framework, override_framework_branch=None,
     fetch_framework_and_plugins(region_dest, framework_branch, region_branch)
     copy_region_files(workspace, region_dest)
     build_project(workspace)
+    setup_appintro(workspace)
     zip_project(workspace, region_name)
 
     print ""
@@ -147,7 +148,7 @@ def copy_region_files(workspace, region_dest):
     copy_files(optional_files, src_dir, optional=True)
 
     directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs',
-                   'locales']
+                   'locales', 'appIntro']
     copy_dirs(directories, src_dir, optional=True)
 
 
@@ -292,6 +293,48 @@ def build_project(root):
 
     # Run build script
     execute(['python', 'scripts/main.py'])
+
+
+def setup_appintro(root):
+    """ Check if appIntro is turned on for the region, and, if so
+    setup the project so that appIntro page becomes the root, and
+    the region page can be embedded.
+    """
+    region_json_path = os.path.join(root, FRAMEWORK_REPO, 'src', 'region.json')
+    app_intro_enabled = False
+
+    # Check if story mode is enabled for the region,
+    # but close the file before moving things around
+    # to avoid file lock issues on Windows
+    with open(region_json_path) as r:
+        region_json = json.load(r)
+
+        if region_json.get('appIntro', False):
+            app_intro_enabled = True
+
+    if app_intro_enabled:
+        src_dir = os.path.join(root, FRAMEWORK_REPO, 'src')
+        app_source_dir = os.path.join(src_dir, 'appSource')
+        app_intro_dir = os.path.join(src_dir, 'appIntro')
+
+        # Create the appSource dir to store the contents of the
+        # region instance
+        os.mkdir(app_source_dir)
+
+        # Move the region contents into the appSource dir
+        for f in os.listdir(src_dir):
+            if 'appSource' not in f and 'appIntro' not in f:
+                shutil.move(os.path.join(src_dir, f), app_source_dir)
+
+        # Move the contents of the appIntro dir up a level
+        # so that they are now at the root of the site
+        for f in os.listdir(app_intro_dir):
+            shutil.move(os.path.join(app_intro_dir, f), src_dir)
+
+        # Remove the appIntro folder since it is no longer needed,
+        # but ignore errors if it fails because it's just a clean-up
+        # task
+        shutil.rmtree(app_intro_dir, ignore_errors=True)
 
 
 def zip_project(root, region_name):
