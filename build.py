@@ -291,7 +291,7 @@ def build_project(root):
     execute(['python', 'scripts/update.py'])
 
     # Run build script
-    execute(['python', 'scripts/main.py'])
+    execute(['python', 'scripts/main.py', is_prod, "test"])
 
 
 def zip_project(root, region_name):
