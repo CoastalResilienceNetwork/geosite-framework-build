@@ -292,7 +292,11 @@ def build_project(root):
     execute(['python', 'scripts/update.py'])
 
     # Run build script
-    execute(['python', 'scripts/main.py'])
+    if is_prod:
+        dev_prod = "prod"
+    if is_dev:
+        dev_prod = "dev"
+    execute(['python', 'scripts/main.py', dev_prod])
 
 
 def setup_appintro(root):
