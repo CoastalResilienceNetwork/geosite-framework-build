@@ -11,12 +11,11 @@ import distutils
 from distutils.dir_util import copy_tree
 from subprocess import call
 
-
 FRAMEWORK_REPO = 'GeositeFramework'
 DEFAULT_ORG = 'CoastalResilienceNetwork'
 DEFAULT_FRAMEWORK_BRANCH = 'develop'
 DEFAULT_REGION_BRANCH = 'development'
-BUILD_DIR = 'build'     # Build workspace
+BUILD_DIR = 'build' # Build workspace
 OUTPUT_DIR = 'output'   # Zip artifact directory
 
 
@@ -53,10 +52,12 @@ def build_region(region, path, full_framework, override_framework_branch=None,
     fetch_framework_and_plugins(region_dest, framework_branch, region_branch)
     copy_region_files(workspace, region_dest)
     build_project(workspace)
+    setup_appintro(workspace)
     zip_project(workspace, region_name)
 
     print ""
     print "---------------------------------------"
+    print "Success!"
     print "%s was built successfully" % region
     print "---------------------------------------"
     print ""
@@ -147,19 +148,19 @@ def copy_region_files(workspace, region_dest):
     copy_files(optional_files, src_dir, optional=True)
 
     directories = ['plugins', 'img', 'Views', 'methods', 'sims', 'xml', 'docs',
-                   'locales']
+                   'locales', 'appIntro']
     copy_dirs(directories, src_dir, optional=True)
 
 
 def copy_files(files, src_dir, optional=False):
     for f in files:
-        print 'Copying %s...' % f
+        #print 'Copying %s...' % f
         overwrite_copy(f, src_dir, True, optional)
 
 
 def copy_dirs(directories, src_dir, optional=False):
     for directory in directories:
-        print 'Copying %s...' % directory
+        #print 'Copying %s...' % directory
         overwrite_copy(directory, os.path.join(src_dir, directory),
                        optional=optional)
 
@@ -189,7 +190,7 @@ def overwrite_copy(file_or_dir, dest, single_file=False, optional=False):
             msg = "Failed to copy {} {}. {}. " \
                   "{} is optional, skipping.".format(file_or_dir, kind, e,
                                                      file_or_dir)
-            print(msg)
+            #print(msg)
         else:
             sys.exit(e)
 
@@ -233,7 +234,7 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
 
     # Get the actual name that git will clone to
     dest = (target_dir or os.path.split(full_repo)[1])
-    print 'Cloning %s@%s...' % (dest, (version or "HEAD"))
+    #print 'Cloning %s@%s...' % (dest, (version or "HEAD"))
 
     repo_url = posixpath.join('https://github.com/' '%s.git' % full_repo)
     clone_args = ['git', 'clone', '--quiet', repo_url]
@@ -260,7 +261,7 @@ def clone_repo(full_repo, target_dir=None, version=None, branch=None):
         # Don't print any errors for checking out branch, there's no good way
         # to check if a remote branch exists programmatically. And if it
         # doesn't, git stays on the current branch.
-        print 'Attempting to checkout the %s branch' % branch
+        #print 'Attempting to checkout the %s branch' % branch
         execute(['git', 'checkout', branch, '2>', 'nul'], [1])
         os.chdir(original_dir)
 
@@ -291,6 +292,7 @@ def build_project(root):
     execute(['python', 'scripts/update.py'])
 
     # Run build script
+    dev_prod = "dev"
     if is_prod:
         dev_prod = "prod"
     if is_dev:
@@ -298,14 +300,67 @@ def build_project(root):
     execute(['python', 'scripts/main.py', dev_prod])
 
 
+def setup_appintro(root):
+    """ Check if appIntro is turned on for the region, and, if so
+    setup the project so that appIntro page becomes the root, and
+    the region page can be embedded.
+    """
+    region_json_path = os.path.join(root, FRAMEWORK_REPO, 'src', 'region.json')
+    app_intro_enabled = False
+
+    # Check if story mode is enabled for the region,
+    # but close the file before moving things around
+    # to avoid file lock issues on Windows
+    with open(region_json_path) as r:
+        region_json = json.load(r)
+
+        if region_json.get('appIntro', False):
+            app_intro_enabled = True
+
+    if app_intro_enabled:
+        src_dir = os.path.join(root, FRAMEWORK_REPO, 'src')
+        app_source_dir = os.path.join(src_dir, 'appSource')
+        app_intro_dir = os.path.join(src_dir, 'appIntro')
+
+        # Create the appSource dir to store the contents of the
+        # region instance
+        os.mkdir(app_source_dir)
+
+        # Move the region contents into the appSource dir
+        for f in os.listdir(src_dir):
+            if 'appSource' not in f and 'appIntro' not in f:
+                shutil.move(os.path.join(src_dir, f), app_source_dir)
+
+        # Move the contents of the appIntro dir up a level
+        # so that they are now at the root of the site
+        for f in os.listdir(app_intro_dir):
+            shutil.move(os.path.join(app_intro_dir, f), src_dir)
+
+        # Remove the appIntro folder since it is no longer needed,
+        # but ignore errors if it fails because it's just a clean-up
+        # task
+        shutil.rmtree(app_intro_dir, ignore_errors=True)
+
+
 def zip_project(root, region_name):
     """ Zip up the built source files """
     src_dir = os.path.join(root, 'GeositeFramework', 'src')
     parent_dir = os.path.join('..', '..')
-    shutil.make_archive(os.path.join(parent_dir, 'output',
+    if is_prod:
+        dev_prod = "prod"
+    if is_dev:
+        dev_prod = "dev"
+    if is_sandbox:
+        print "Creating a zipped file of " + region_name + " for development purposes. Go to C:\SandboxOuput to get the zipped file."
+        shutil.make_archive(os.path.join(r'C:\SandboxOuput',
                         region_name), 'zip', src_dir)
-
-
+    else:
+        print "Publishing " + region_name + " to " + dev_prod
+        reg_fldr = os.path.join(r'C:\inetpub\wwwroot', dev_prod, region_name)
+        if os.path.isdir(reg_fldr):
+            shutil.rmtree(reg_fldr)
+        shutil.copytree(src_dir,reg_fldr)
+    
 def execute(call_args, additional_success_codes=[]):
     """ Check the exit code for a subprocess call for errors.
         By default, 0 is ok, but the caller can provide
@@ -346,6 +401,10 @@ if (__name__ == '__main__'):
                         help='Use the master branch for the region and ' +
                              'framework unless --region-branch and/or ' +
                              '--framework-branch is specified')
+    parser.add_argument('--sandbox', default=False, action='store_true',
+                        help='Use the master branch for the region and ' +
+                             'framework unless --region-branch and/or ' +
+                             '--framework-branch is specified')
 
     args = parser.parse_args()
 
@@ -355,13 +414,14 @@ if (__name__ == '__main__'):
 
     is_prod = args.prod
     is_dev = args.dev
+    is_sandbox = args.sandbox
 
     framework_branch = args.framework_branch if args.framework_branch else None
     region_branch = args.region_branch if args.region_branch else None
 
     full_framework = posixpath.join(DEFAULT_ORG, FRAMEWORK_REPO)
     cwd = os.getcwd()
-
+    
     if args.config:
         build_from_config(args.source, cwd, full_framework, is_prod, is_dev)
     else:
